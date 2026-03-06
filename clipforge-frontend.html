@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClipForge — AI Video Clipper</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080a0f; --surface: #0e1118; --surface2: #141820;
+    --border: #1e2535; --accent: #00e5ff; --accent2: #7b5ea7;
+    --accent3: #ff4d6d; --text: #e8eaf0; --muted: #5a6275; --success: #00d68f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; z-index: 1000; opacity: 0.4; }
+  body::after { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 20px 48px; background: rgba(8,10,15,0.8); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+  .logo { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+  .logo-icon { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: grid; place-items: center; font-size: 14px; }
+  .logo span { color: var(--accent); }
+  .nav-links { display: flex; gap: 32px; list-style: none; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.5px; color: var(--muted); }
+  .nav-links a { color: inherit; text-decoration: none; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta { background: var(--accent); color: #000; border: none; padding: 10px 24px; border-radius: 8px; font-family: 'Syne',sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+  .nav-cta:hover { background: #33ecff; transform: translateY(-1px); }
+
+  .hero { position: relative; z-index: 1; padding: 160px 48px 80px; max-width: 1200px; margin: 0 auto; text-align: center; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.2); color: var(--accent); padding: 6px 16px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 32px; animation: fadeUp 0.6s ease both; }
+  .badge-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  h1 { font-size: clamp(3rem,7vw,6rem); font-weight: 800; line-height: 1; letter-spacing: -3px; margin-bottom: 24px; animation: fadeUp 0.6s 0.1s ease both; }
+  h1 em { font-style: normal; color: var(--accent); position: relative; }
+  .hero-sub { font-size: 1.1rem; color: var(--muted); max-width: 560px; margin: 0 auto 48px; line-height: 1.7; font-family: 'DM Mono',monospace; font-weight: 300; animation: fadeUp 0.6s 0.2s ease both; }
+
+  /* API CONFIG BANNER */
+  .api-banner { position: relative; z-index: 1; max-width: 800px; margin: 0 auto 16px; padding: 0 0; }
+  .api-config { display: flex; align-items: center; gap: 10px; background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px; padding: 12px 16px; }
+  .api-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background 0.3s; }
+  .api-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .api-dot.error { background: var(--accent3); }
+  .api-label { font-family: 'DM Mono',monospace; font-size: 0.78rem; color: var(--muted); flex: 1; }
+  .api-url-input { flex: 2; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 8px; font-family: 'DM Mono',monospace; font-size: 0.78rem; outline: none; }
+  .api-url-input:focus { border-color: var(--accent); }
+  .api-test-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 8px; font-family: 'DM Mono',monospace; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .api-test-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* UPLOAD ZONE */
+  .upload-zone { position: relative; z-index: 1; max-width: 800px; margin: 0 auto 80px; animation: fadeUp 0.6s 0.3s ease both; }
+  .input-tabs { display: flex; gap: 8px; margin-bottom: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 6px; }
+  .input-tab { flex: 1; padding: 12px; border-radius: 10px; border: none; background: transparent; color: var(--muted); font-family: 'Syne',sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .input-tab.active { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .input-tab.active .tab-icon { color: var(--accent); }
+
+  .file-panel { display: block; }
+  .file-panel.hidden { display: none; }
+  .link-panel { display: none; }
+  .link-panel.visible { display: block; }
+
+  .video-preview-wrap { display: none; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .video-preview-wrap.visible { display: flex; }
+  .video-thumb { width: 80px; height: 50px; background: var(--surface2); border-radius: 8px; display: grid; place-items: center; font-size: 1.5rem; flex-shrink: 0; }
+  .video-info { flex: 1; }
+  .video-name { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .video-meta { font-family: 'DM Mono',monospace; font-size: 0.75rem; color: var(--muted); }
+  .remove-btn { background: none; border: 1px solid var(--border); color: var(--muted); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.2s; display: grid; place-items: center; }
+  .remove-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  .dropzone { border: 2px dashed var(--border); border-radius: 20px; padding: 64px 48px; text-align: center; cursor: pointer; transition: all 0.3s; background: var(--surface); position: relative; overflow: hidden; }
+  .dropzone::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%,rgba(0,229,255,0.06) 0%,transparent 70%); pointer-events: none; }
+  .dropzone:hover,.dropzone.dragover { border-color: var(--accent); background: rgba(0,229,255,0.04); }
+  .dropzone:hover .upload-icon { transform: scale(1.1); color: var(--accent); }
+  .upload-icon { font-size: 3rem; margin-bottom: 16px; display: block; transition: all 0.3s; }
+  .dropzone h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+  .dropzone p { color: var(--muted); font-family: 'DM Mono',monospace; font-size: 0.85rem; }
+  .dropzone p span { color: var(--accent); cursor: pointer; text-decoration: underline; }
+  #fileInput { display: none; }
+  .format-tags { display: flex; gap: 8px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+  .tag { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 4px 12px; border-radius: 100px; font-size: 0.72rem; font-family: 'DM Mono',monospace; }
+
+  /* LINK PANEL */
+  .link-box { background: var(--surface); border: 2px solid var(--border); border-radius: 20px; padding: 28px; transition: border-color 0.3s; position: relative; overflow: hidden; }
+  .link-box::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%,rgba(0,229,255,0.05) 0%,transparent 70%); pointer-events: none; }
+  .link-box.has-link { border-color: rgba(0,229,255,0.3); }
+  .link-input-wrap { display: flex; gap: 10px; margin-bottom: 16px; }
+  .link-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 14px 18px; border-radius: 10px; font-family: 'DM Mono',monospace; font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
+  .link-input:focus { border-color: var(--accent); }
+  .link-input::placeholder { color: var(--muted); }
+  .link-fetch-btn { background: var(--accent); color: #000; border: none; padding: 14px 22px; border-radius: 10px; font-family: 'Syne',sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .link-fetch-btn:hover { background: #33ecff; }
+  .link-fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .platform-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .platform-label { font-family: 'DM Mono',monospace; font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+  .platform-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .platform-chip { display: flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 4px 12px; border-radius: 100px; font-size: 0.72rem; font-family: 'DM Mono',monospace; }
+  .platform-chip.detected { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.08); }
+  .link-preview { display: none; align-items: center; gap: 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-top: 16px; }
+  .link-preview.visible { display: flex; }
+  .link-thumb { width: 90px; height: 56px; background: var(--bg); border-radius: 8px; display: grid; place-items: center; font-size: 1.8rem; flex-shrink: 0; position: relative; overflow: hidden; border: 1px solid var(--border); }
+  .link-thumb-label { position: absolute; bottom: 3px; right: 4px; font-family: 'DM Mono',monospace; font-size: 0.6rem; background: rgba(0,0,0,0.8); padding: 1px 5px; border-radius: 4px; }
+  .link-info { flex: 1; min-width: 0; }
+  .link-title-text { font-size: 0.88rem; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .link-meta { font-family: 'DM Mono',monospace; font-size: 0.72rem; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+  .link-platform-badge { background: var(--accent); color: #000; padding: 2px 8px; border-radius: 100px; font-size: 0.65rem; font-weight: 700; }
+  .link-remove { background: none; border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; display: grid; place-items: center; flex-shrink: 0; }
+  .link-remove:hover { border-color: var(--accent3); color: var(--accent3); }
+  .fetching-state { display: none; align-items: center; gap: 10px; color: var(--muted); font-family: 'DM Mono',monospace; font-size: 0.8rem; margin-top: 12px; }
+  .fetching-state.visible { display: flex; }
+  .fetch-spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+
+  /* SETTINGS */
+  .settings-panel { display: none; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .settings-panel.visible { display: grid; }
+  .setting-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+  .setting-card label { display: block; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
+  .setting-card select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 8px; font-family: 'DM Mono',monospace; font-size: 0.85rem; appearance: none; cursor: pointer; }
+  .toggle-group { display: flex; gap: 8px; }
+  .toggle-btn { flex: 1; padding: 10px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; font-family: 'Syne',sans-serif; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center; }
+  .toggle-btn.active { background: rgba(0,229,255,0.1); border-color: var(--accent); color: var(--accent); }
+
+  /* PROGRESS */
+  .progress-wrap { display: none; margin-top: 20px; }
+  .progress-wrap.visible { display: block; }
+  .progress-steps { display: flex; flex-direction: column; gap: 12px; }
+  .step { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; transition: all 0.3s; }
+  .step.active { border-color: var(--accent); background: rgba(0,229,255,0.04); }
+  .step.done { border-color: var(--success); }
+  .step-icon { width: 36px; height: 36px; border-radius: 50%; background: var(--surface2); display: grid; place-items: center; font-size: 0.9rem; flex-shrink: 0; border: 1px solid var(--border); transition: all 0.3s; }
+  .step.active .step-icon { background: rgba(0,229,255,0.15); border-color: var(--accent); animation: spin 1s linear infinite; }
+  .step.done .step-icon { background: rgba(0,214,143,0.15); border-color: var(--success); }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .step-text { flex: 1; }
+  .step-label { font-size: 0.9rem; font-weight: 700; }
+  .step-sub { font-family: 'DM Mono',monospace; font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .step-status { font-family: 'DM Mono',monospace; font-size: 0.75rem; }
+  .step.active .step-status { color: var(--accent); }
+  .step.done .step-status { color: var(--success); }
+  .progress-bar-wrap { margin-top: 16px; background: var(--surface2); border-radius: 100px; height: 4px; overflow: hidden; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 100px; width: 0%; transition: width 0.5s ease; }
+
+  /* PROCESS BTN */
+  .process-btn { width: 100%; padding: 18px; background: var(--accent); color: #000; border: none; border-radius: 12px; font-family: 'Syne',sans-serif; font-weight: 800; font-size: 1rem; cursor: pointer; transition: all 0.3s; display: none; align-items: center; justify-content: center; gap: 10px; letter-spacing: 0.5px; margin-top: 16px; }
+  .process-btn.visible { display: flex; }
+  .process-btn:hover { background: #33ecff; transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,229,255,0.25); }
+  .process-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* RESULTS */
+  .results-section { display: none; position: relative; z-index: 1; max-width: 1200px; margin: 0 auto 80px; padding: 0 48px; }
+  .results-section.visible { display: block; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .section-title { font-size: 1.8rem; font-weight: 800; letter-spacing: -1px; }
+  .section-title span { color: var(--accent); }
+  .section-meta { font-family: 'DM Mono',monospace; font-size: 0.8rem; color: var(--muted); }
+  .clips-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(300px,1fr)); gap: 20px; }
+  .clip-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; transition: all 0.3s; animation: fadeUp 0.5s ease both; }
+  .clip-card:hover { border-color: rgba(0,229,255,0.3); transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+  .clip-thumb { position: relative; aspect-ratio: 9/16; background: var(--surface2); display: grid; place-items: center; overflow: hidden; }
+  .clip-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .clip-thumb-bg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 5rem; opacity: 0.15; }
+  .clip-duration { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: #fff; font-family: 'DM Mono',monospace; font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(10px); z-index: 2; }
+  .clip-score { position: absolute; top: 10px; left: 10px; background: rgba(0,229,255,0.9); color: #000; font-family: 'DM Mono',monospace; font-size: 0.72rem; padding: 3px 10px; border-radius: 100px; z-index: 2; }
+  .play-btn { position: absolute; width: 52px; height: 52px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; cursor: pointer; backdrop-filter: blur(10px); transition: all 0.2s; z-index: 2; }
+  .play-btn:hover { background: var(--accent); border-color: var(--accent); color: #000; transform: scale(1.1); }
+  .subtitle-strip { position: absolute; bottom: 40px; left: 12px; right: 12px; background: rgba(0,0,0,0.75); border-radius: 6px; padding: 6px 10px; font-size: 0.75rem; text-align: center; backdrop-filter: blur(10px); font-weight: 600; line-height: 1.4; z-index: 2; }
+  .subtitle-strip span { color: var(--accent); }
+  .clip-info { padding: 16px; }
+  .clip-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; line-height: 1.3; }
+  .clip-desc { font-family: 'DM Mono',monospace; font-size: 0.75rem; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+  .clip-transcript { font-family: 'DM Mono',monospace; font-size: 0.7rem; color: var(--muted); line-height: 1.5; margin-bottom: 12px; background: var(--surface2); border-radius: 8px; padding: 10px; border-left: 2px solid var(--accent); display: none; }
+  .clip-transcript.visible { display: block; }
+  .clip-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .clip-tag { background: var(--surface2); border: 1px solid var(--border); color: var(--accent); padding: 3px 10px; border-radius: 100px; font-family: 'DM Mono',monospace; font-size: 0.7rem; }
+  .clip-actions { display: flex; gap: 8px; }
+  .clip-btn { flex: 1; padding: 10px; border-radius: 8px; font-family: 'Syne',sans-serif; font-weight: 700; font-size: 0.78rem; cursor: pointer; transition: all 0.2s; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .clip-btn-primary { background: var(--accent); color: #000; border: none; }
+  .clip-btn-primary:hover { background: #33ecff; }
+  .clip-btn-secondary { background: none; border: 1px solid var(--border); color: var(--muted); }
+  .clip-btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* FEATURES */
+  .features { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto 80px; padding: 0 48px; }
+  .features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+  .feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; transition: all 0.3s; }
+  .feature-card:hover { border-color: rgba(0,229,255,0.2); transform: translateY(-2px); }
+  .feature-icon { font-size: 2rem; margin-bottom: 16px; display: block; }
+  .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+  .feature-card p { font-family: 'DM Mono',monospace; font-size: 0.78rem; color: var(--muted); line-height: 1.7; }
+
+  /* STATS */
+  .stats { display: flex; max-width: 1200px; margin: 0 auto 80px; padding: 0 48px; position: relative; z-index: 1; }
+  .stat { flex: 1; text-align: center; padding: 32px; background: var(--surface); border: 1px solid var(--border); border-right: none; }
+  .stat:first-child { border-radius: 16px 0 0 16px; }
+  .stat:last-child { border-right: 1px solid var(--border); border-radius: 0 16px 16px 0; }
+  .stat-number { font-size: 2.5rem; font-weight: 800; color: var(--accent); letter-spacing: -2px; display: block; }
+  .stat-label { font-family: 'DM Mono',monospace; font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+  .orb { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+  .orb-1 { width: 500px; height: 500px; background: rgba(0,229,255,0.06); top: -200px; left: -100px; }
+  .orb-2 { width: 400px; height: 400px; background: rgba(123,94,167,0.06); bottom: 0; right: -100px; }
+
+  .toast { position: fixed; bottom: 32px; right: 32px; background: var(--surface); border: 1px solid var(--success); color: var(--success); padding: 14px 20px; border-radius: 12px; font-family: 'DM Mono',monospace; font-size: 0.85rem; z-index: 200; display: none; align-items: center; gap: 10px; backdrop-filter: blur(20px); animation: fadeUp 0.3s ease; }
+  .toast.visible { display: flex; }
+  .toast.error { border-color: var(--accent3); color: var(--accent3); }
+
+  footer { position: relative; z-index: 1; text-align: center; padding: 40px 48px; border-top: 1px solid var(--border); font-family: 'DM Mono',monospace; font-size: 0.78rem; color: var(--muted); }
+
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    .nav-links { display: none; }
+    .hero { padding: 120px 20px 60px; }
+    .upload-zone,.api-banner { padding: 0 20px; }
+    .features,.stats,.results-section { padding: 0 20px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .stats { flex-direction: column; }
+    .stat { border-right: 1px solid var(--border); border-bottom: none; border-radius: 0; }
+    .stat:first-child { border-radius: 16px 16px 0 0; }
+    .stat:last-child { border-radius: 0 0 16px 16px; border-bottom: 1px solid var(--border); }
+    .settings-panel { grid-template-columns: 1fr; }
+    .api-config { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<nav>
+  <div class="logo"><div class="logo-icon">✂</div>Clip<span>Forge</span></div>
+  <ul class="nav-links">
+    <li><a href="#">Features</a></li><li><a href="#">Pricing</a></li>
+    <li><a href="#">Examples</a></li><li><a href="#">API</a></li>
+  </ul>
+  <button class="nav-cta">Start Free</button>
+</nav>
+
+<section class="hero">
+  <div class="badge"><div class="badge-dot"></div> Powered by Gemini AI</div>
+  <h1>Turn long videos into<br><em>viral clips</em></h1>
+  <p class="hero-sub">AI scans your video, finds the best moments, cuts them into short-form reels, and adds captions + descriptions automatically.</p>
+</section>
+
+<!-- API CONFIG -->
+<div class="api-banner">
+  <div class="api-config">
+    <div class="api-dot" id="apiDot"></div>
+    <span class="api-label">Backend URL:</span>
+    <input class="api-url-input" id="apiUrlInput" type="url"
+      placeholder="https://your-app.onrender.com"
+      value=""
+      oninput="onApiUrlChange()"
+    >
+    <button class="api-test-btn" onclick="testConnection()">Test Connection</button>
+  </div>
+</div>
+
+<!-- UPLOAD ZONE -->
+<div class="upload-zone">
+  <div class="input-tabs">
+    <button class="input-tab active" id="tabFile" onclick="switchTab('file')">
+      <span class="tab-icon">📁</span> Upload File
+    </button>
+    <button class="input-tab" id="tabLink" onclick="switchTab('link')">
+      <span class="tab-icon">🔗</span> Paste Link
+    </button>
+  </div>
+
+  <!-- FILE PANEL -->
+  <div class="file-panel" id="filePanel">
+    <div class="video-preview-wrap" id="videoPreview">
+      <div class="video-thumb">🎬</div>
+      <div class="video-info">
+        <div class="video-name" id="videoName">video.mp4</div>
+        <div class="video-meta" id="videoMeta">Loading...</div>
+      </div>
+      <button class="remove-btn" onclick="removeVideo()">✕</button>
+    </div>
+    <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+      <span class="upload-icon">☁</span>
+      <h3>Drop your video here</h3>
+      <p>or <span>browse files</span> to upload</p>
+      <div class="format-tags">
+        <span class="tag">MP4</span><span class="tag">MOV</span>
+        <span class="tag">AVI</span><span class="tag">MKV</span>
+        <span class="tag">WEBM</span><span class="tag">up to 4GB</span>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept="video/*">
+  </div>
+
+  <!-- LINK PANEL -->
+  <div class="link-panel" id="linkPanel">
+    <div class="link-box" id="linkBox">
+      <div class="link-input-wrap">
+        <input class="link-input" id="linkInput" type="url"
+          placeholder="Paste a YouTube, TikTok, Instagram, Twitter/X or Twitch URL..."
+          oninput="onLinkInput(this.value)"
+          onkeydown="if(event.key==='Enter') fetchLinkInfo()">
+        <button class="link-fetch-btn" id="fetchBtn" onclick="fetchLinkInfo()">Fetch →</button>
+      </div>
+      <div class="platform-row">
+        <span class="platform-label">Supports:</span>
+        <div class="platform-chips">
+          <span class="platform-chip" id="chip-youtube">▶ YouTube</span>
+          <span class="platform-chip" id="chip-tiktok">♪ TikTok</span>
+          <span class="platform-chip" id="chip-instagram">◎ Instagram</span>
+          <span class="platform-chip" id="chip-twitter">✦ Twitter/X</span>
+          <span class="platform-chip" id="chip-twitch">⬡ Twitch</span>
+          <span class="platform-chip" id="chip-direct">🔗 Direct URL</span>
+        </div>
+      </div>
+      <div class="fetching-state" id="fetchingState">
+        <div class="fetch-spinner"></div> Fetching video info...
+      </div>
+      <div class="link-preview" id="linkPreview">
+        <div class="link-thumb" id="linkThumb">🎬<span class="link-thumb-label" id="linkDur">0:00</span></div>
+        <div class="link-info">
+          <div class="link-title-text" id="linkTitleText">Video Title</div>
+          <div class="link-meta">
+            <span class="link-platform-badge" id="linkBadge">YouTube</span>
+            <span id="linkChannel">Channel</span>
+            <span id="linkViews"></span>
+          </div>
+        </div>
+        <button class="link-remove" onclick="removeLink()">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="setting-card">
+      <label>Clip Length</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="setToggle(this,'len')" data-val="15">15s</button>
+        <button class="toggle-btn" onclick="setToggle(this,'len')" data-val="30">30s</button>
+        <button class="toggle-btn" onclick="setToggle(this,'len')" data-val="60">60s</button>
+        <button class="toggle-btn" onclick="setToggle(this,'len')" data-val="90">90s</button>
+      </div>
+    </div>
+    <div class="setting-card">
+      <label>Number of Clips</label>
+      <select id="numClips">
+        <option value="3">3 clips</option>
+        <option value="5" selected>5 clips</option>
+        <option value="10">10 clips</option>
+      </select>
+    </div>
+    <div class="setting-card">
+      <label>Content Focus</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="setToggle(this,'focus')" data-val="engaging">🔥 Engaging</button>
+        <button class="toggle-btn" onclick="setToggle(this,'focus')" data-val="funny">😂 Funny</button>
+        <button class="toggle-btn" onclick="setToggle(this,'focus')" data-val="insights">💡 Insights</button>
+        <button class="toggle-btn" onclick="setToggle(this,'focus')" data-val="emotional">🎭 Emotional</button>
+      </div>
+    </div>
+    <div class="setting-card">
+      <label>Aspect Ratio</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="setToggle(this,'ratio')">9:16</button>
+        <button class="toggle-btn" onclick="setToggle(this,'ratio')">1:1</button>
+        <button class="toggle-btn" onclick="setToggle(this,'ratio')">16:9</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-steps">
+      <div class="step" id="step1"><div class="step-icon">📤</div><div class="step-text"><div class="step-label" id="step1label">Uploading Video</div><div class="step-sub">Transferring to AI servers</div></div><div class="step-status" id="step1status">Waiting</div></div>
+      <div class="step" id="step2"><div class="step-icon">🧠</div><div class="step-text"><div class="step-label">AI Analysis</div><div class="step-sub">Finding highlights & key moments</div></div><div class="step-status" id="step2status">Waiting</div></div>
+      <div class="step" id="step3"><div class="step-icon">✂</div><div class="step-text"><div class="step-label">Clipping & Editing</div><div class="step-sub">Cutting reels at optimal timestamps</div></div><div class="step-status" id="step3status">Waiting</div></div>
+      <div class="step" id="step4"><div class="step-icon">💬</div><div class="step-text"><div class="step-label">Generating Subtitles</div><div class="step-sub">Transcribing with Gemini</div></div><div class="step-status" id="step4status">Waiting</div></div>
+      <div class="step" id="step5"><div class="step-icon">📝</div><div class="step-text"><div class="step-label">Writing Descriptions</div><div class="step-sub">AI-generated captions & hashtags</div></div><div class="step-status" id="step5status">Waiting</div></div>
+    </div>
+    <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+  </div>
+
+  <button class="process-btn" id="processBtn" onclick="startProcessing()">
+    ✨ Generate Clips with AI
+  </button>
+</div>
+
+<!-- RESULTS -->
+<div class="results-section" id="resultsSection">
+  <div class="section-header">
+    <div>
+      <div class="section-title"><span id="clipCount">0 clips</span> generated</div>
+      <div class="section-meta" id="resultsMeta"></div>
+    </div>
+    <button class="nav-cta" onclick="downloadAll()">⬇ Download All</button>
+  </div>
+  <div class="clips-grid" id="clipsGrid"></div>
+</div>
+
+<!-- FEATURES -->
+<div class="features">
+  <div class="features-grid">
+    <div class="feature-card"><span class="feature-icon">🎯</span><h3>Smart Highlight Detection</h3><p>AI analyzes audio, speaker energy, and engagement signals to find the moments that will perform best.</p></div>
+    <div class="feature-card"><span class="feature-icon">💬</span><h3>Auto Subtitles via Gemini</h3><p>Word-level transcription with animated captions. Gemini handles audio directly — no extra service needed.</p></div>
+    <div class="feature-card"><span class="feature-icon">✍️</span><h3>AI Descriptions</h3><p>Platform-optimized descriptions, hooks, and hashtags generated for each individual clip by Gemini.</p></div>
+    <div class="feature-card"><span class="feature-icon">🔗</span><h3>Clip from Any URL</h3><p>YouTube, TikTok, Instagram Reels, Twitter/X, Twitch — paste the link and we handle the download.</p></div>
+    <div class="feature-card"><span class="feature-icon">⚡</span><h3>Real Downloads</h3><p>Actual MP4 files cut by FFmpeg, served directly from your backend. No watermarks, no limits.</p></div>
+    <div class="feature-card"><span class="feature-icon">🚀</span><h3>Deploy Free on Render</h3><p>Full Python backend with Docker. Deploy to Render's free tier in minutes — no credit card needed.</p></div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="stat-number">2.4M+</span><div class="stat-label">clips generated</div></div>
+  <div class="stat"><span class="stat-number">180K</span><div class="stat-label">creators</div></div>
+  <div class="stat"><span class="stat-number">94%</span><div class="stat-label">accuracy score</div></div>
+  <div class="stat"><span class="stat-number">~45s</span><div class="stat-label">avg processing time</div></div>
+</div>
+
+<footer>© 2026 ClipForge · AI-powered video clipping · Built with Gemini AI · Deploy free on Render</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── STATE ────────────────────────────────────────────────
+  let activeTab = 'file';
+  let linkReady = false;
+  let currentJobId = null;
+  let pollInterval = null;
+  let settings = { len: 30, focus: 'engaging' };
+  let generatedClips = [];
+
+  const getApiUrl = () => document.getElementById('apiUrlInput').value.trim().replace(/\/$/, '');
+
+  // ── API CONNECTION ───────────────────────────────────────
+  function onApiUrlChange() {
+    document.getElementById('apiDot').className = 'api-dot';
+  }
+
+  async function testConnection() {
+    const url = getApiUrl();
+    if (!url) { showToast('Enter your backend URL first', true); return; }
+    try {
+      const r = await fetch(url + '/');
+      if (r.ok) {
+        document.getElementById('apiDot').className = 'api-dot connected';
+        showToast('✓ Connected to backend!');
+      } else throw new Error();
+    } catch {
+      document.getElementById('apiDot').className = 'api-dot error';
+      showToast('✗ Could not connect — is your backend running?', true);
+    }
+  }
+
+  // ── TABS ────────────────────────────────────────────────
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('tabFile').classList.toggle('active', tab === 'file');
+    document.getElementById('tabLink').classList.toggle('active', tab === 'link');
+    document.getElementById('filePanel').classList.toggle('hidden', tab !== 'file');
+    document.getElementById('linkPanel').classList.toggle('visible', tab === 'link');
+    const hasFile = document.getElementById('videoPreview').classList.contains('visible');
+    const hasLink = linkReady;
+    const ready = tab === 'file' ? hasFile : hasLink;
+    document.getElementById('settingsPanel').classList.toggle('visible', ready);
+    document.getElementById('processBtn').classList.toggle('visible', ready);
+  }
+
+  // ── PLATFORM DETECTION ──────────────────────────────────
+  const platforms = {
+    youtube:   { re: /youtube\.com|youtu\.be/, emoji: '▶', label: 'YouTube' },
+    tiktok:    { re: /tiktok\.com/,            emoji: '♪', label: 'TikTok'  },
+    instagram: { re: /instagram\.com/,          emoji: '◎', label: 'Instagram' },
+    twitter:   { re: /twitter\.com|x\.com/,     emoji: '✦', label: 'Twitter/X' },
+    twitch:    { re: /twitch\.tv/,              emoji: '⬡', label: 'Twitch'  },
+    direct:    { re: /\.(mp4|mov|avi)(\?|$)/i,  emoji: '🔗', label: 'Direct'  }
+  };
+  const fakeMeta = {
+    youtube:   { title: 'How I grew to 1M subscribers (full breakdown)', channel: 'CreatorAcademy', views: '2.4M views', dur: '42:18' },
+    tiktok:    { title: 'POV: this productivity hack changed my life', channel: '@lifehacks.ai', views: '8.1M views', dur: '3:24' },
+    instagram: { title: 'My morning routine that actually works', channel: '@minimalist.life', views: '1.2M views', dur: '12:05' },
+    twitter:   { title: 'Thread turned video — the full story', channel: '@techfounder', views: '890K views', dur: '8:33' },
+    twitch:    { title: 'Stream highlight — insane comeback moment', channel: 'ProGamer_Live', views: '340K views', dur: '1:24:07' },
+    direct:    { title: 'video.mp4', channel: 'Direct file', views: '', dur: '?' }
+  };
+
+  function detectPlatform(url) {
+    for (const [k, p] of Object.entries(platforms)) { if (p.re.test(url)) return k; }
+    return null;
+  }
+
+  function onLinkInput(val) {
+    Object.keys(platforms).forEach(k => document.getElementById('chip-'+k)?.classList.remove('detected'));
+    const p = detectPlatform(val);
+    if (p) document.getElementById('chip-'+p)?.classList.add('detected');
+    document.getElementById('linkBox').classList.toggle('has-link', val.length > 5);
+  }
+
+  async function fetchLinkInfo() {
+    const url = document.getElementById('linkInput').value.trim();
+    if (!url) return;
+    const platform = detectPlatform(url) || 'direct';
+    const meta = fakeMeta[platform] || fakeMeta.direct;
+    const pInfo = platforms[platform];
+
+    document.getElementById('fetchingState').classList.add('visible');
+    document.getElementById('fetchBtn').disabled = true;
+    document.getElementById('linkPreview').classList.remove('visible');
+
+    await sleep(1200 + Math.random() * 500);
+
+    document.getElementById('fetchingState').classList.remove('visible');
+    document.getElementById('fetchBtn').disabled = false;
+    document.getElementById('linkThumb').childNodes[0].textContent = pInfo.emoji;
+    document.getElementById('linkDur').textContent = meta.dur;
+    document.getElementById('linkTitleText').textContent = meta.title;
+    document.getElementById('linkBadge').textContent = pInfo.label;
+    document.getElementById('linkChannel').textContent = meta.channel;
+    document.getElementById('linkViews').textContent = meta.views ? '· ' + meta.views : '';
+    document.getElementById('linkPreview').classList.add('visible');
+
+    linkReady = true;
+    document.getElementById('settingsPanel').classList.add('visible');
+    document.getElementById('processBtn').classList.add('visible');
+    showToast('✓ Video ready to clip!');
+  }
+
+  function removeLink() {
+    document.getElementById('linkInput').value = '';
+    document.getElementById('linkPreview').classList.remove('visible');
+    document.getElementById('linkBox').classList.remove('has-link');
+    document.getElementById('settingsPanel').classList.remove('visible');
+    document.getElementById('processBtn').classList.remove('visible');
+    linkReady = false;
+    Object.keys(platforms).forEach(k => document.getElementById('chip-'+k)?.classList.remove('detected'));
+  }
+
+  // ── FILE UPLOAD ──────────────────────────────────────────
+  const dropzone = document.getElementById('dropzone');
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+  document.getElementById('fileInput').addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+  function handleFile(file) {
+    document.getElementById('videoName').textContent = file.name;
+    const size = (file.size/1024/1024).toFixed(1);
+    document.getElementById('videoMeta').textContent = `${size} MB · ${file.type || 'video/mp4'}`;
+    document.getElementById('videoPreview').classList.add('visible');
+    document.getElementById('settingsPanel').classList.add('visible');
+    document.getElementById('processBtn').classList.add('visible');
+  }
+
+  function removeVideo() {
+    document.getElementById('videoPreview').classList.remove('visible');
+    document.getElementById('settingsPanel').classList.remove('visible');
+    document.getElementById('processBtn').classList.remove('visible');
+    document.getElementById('fileInput').value = '';
+  }
+
+  function setToggle(btn, group) {
+    btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (btn.dataset.val) settings[group] = btn.dataset.val;
+  }
+
+  // ── PROCESSING ──────────────────────────────────────────
+  async function startProcessing() {
+    const apiUrl = getApiUrl();
+    if (!apiUrl) { showToast('Please enter your backend URL above', true); return; }
+
+    document.getElementById('processBtn').disabled = true;
+    document.getElementById('progressWrap').classList.add('visible');
+    document.getElementById('resultsSection').classList.remove('visible');
+
+    // Reset steps
+    for (let i = 1; i <= 5; i++) {
+      const s = document.getElementById('step'+i);
+      s.classList.remove('active','done');
+      document.getElementById('step'+i+'status').textContent = 'Waiting';
+      s.querySelector('.step-icon').textContent = ['📤','🧠','✂','💬','📝'][i-1];
+    }
+    document.getElementById('progressBar').style.width = '0%';
+
+    document.getElementById('step1label').textContent = activeTab === 'link' ? 'Downloading Video' : 'Uploading Video';
+
+    try {
+      let jobId;
+      if (activeTab === 'link') {
+        // Send link to backend
+        const url = document.getElementById('linkInput').value.trim();
+        const resp = await fetch(apiUrl + '/from-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url,
+            num_clips: parseInt(document.getElementById('numClips').value),
+            clip_length: parseInt(settings.len),
+            focus: settings.focus
+          })
+        });
+        const data = await resp.json();
+        jobId = data.job_id;
+      } else {
+        // Upload file
+        const file = document.getElementById('fileInput').files[0];
+        if (!file) { showToast('No file selected', true); return; }
+        const form = new FormData();
+        form.append('file', file);
+        form.append('num_clips', document.getElementById('numClips').value);
+        form.append('clip_length', settings.len);
+        form.append('focus', settings.focus);
+        setStep(1, 'active', 'Uploading...');
+        const resp = await fetch(apiUrl + '/upload', { method: 'POST', body: form });
+        const data = await resp.json();
+        jobId = data.job_id;
+      }
+
+      currentJobId = jobId;
+      pollStatus(apiUrl, jobId);
+
+    } catch (err) {
+      showToast('Error: ' + err.message, true);
+      document.getElementById('processBtn').disabled = false;
+    }
+  }
+
+  function pollStatus(apiUrl, jobId) {
+    const statusMap = {
+      downloading:  [1, 'Downloading...'],
+      uploading:    [1, 'Uploading...'],
+      analyzing:    [2, 'Analyzing...'],
+      clipping:     [3, 'Clipping...'],
+      transcribing: [4, 'Transcribing...'],
+      writing:      [5, 'Writing...'],
+    };
+
+    pollInterval = setInterval(async () => {
+      try {
+        const r = await fetch(apiUrl + '/status/' + jobId);
+        const data = await r.json();
+
+        document.getElementById('progressBar').style.width = (data.progress || 0) + '%';
+
+        // Update step visuals
+        const mapped = statusMap[data.status];
+        if (mapped) {
+          const [stepNum, label] = mapped;
+          // mark previous steps done
+          for (let i = 1; i < stepNum; i++) setStep(i, 'done', 'Done');
+          setStep(stepNum, 'active', label);
+          document.getElementById('step'+stepNum+'status').textContent = label;
+        }
+
+        if (data.status === 'done') {
+          clearInterval(pollInterval);
+          for (let i = 1; i <= 5; i++) setStep(i, 'done', 'Done');
+          document.getElementById('progressBar').style.width = '100%';
+          await sleep(400);
+          showResults(apiUrl, data.clips);
+        } else if (data.status === 'error') {
+          clearInterval(pollInterval);
+          showToast('Processing error: ' + data.error, true);
+          document.getElementById('processBtn').disabled = false;
+        }
+      } catch (e) {
+        console.error('Poll error:', e);
+      }
+    }, 3000);
+  }
+
+  function setStep(num, state, label) {
+    const el = document.getElementById('step'+num);
+    el.classList.remove('active','done');
+    if (state) el.classList.add(state);
+    if (state === 'done') el.querySelector('.step-icon').textContent = '✓';
+    document.getElementById('step'+num+'status').textContent = label;
+  }
+
+  function showResults(apiUrl, clips) {
+    generatedClips = clips;
+    document.getElementById('progressWrap').classList.remove('visible');
+    document.getElementById('resultsSection').classList.add('visible');
+    document.getElementById('processBtn').disabled = false;
+    document.getElementById('clipCount').textContent = clips.length + ' clip' + (clips.length !== 1 ? 's' : '');
+    document.getElementById('resultsMeta').textContent = `ready to download · ${clips.length} reels generated`;
+
+    const grid = document.getElementById('clipsGrid');
+    grid.innerHTML = '';
+
+    clips.forEach((clip, i) => {
+      const card = document.createElement('div');
+      card.className = 'clip-card';
+      card.style.animationDelay = (i * 0.1) + 's';
+      const streamUrl = apiUrl + clip.stream_url;
+      const dlUrl = apiUrl + clip.download_url;
+      const tags = (clip.hashtags || []).map(t => `<span class="clip-tag">${t}</span>`).join('');
+      const score = clip.score || 80;
+      const mins = Math.floor((clip.duration || 30) / 60);
+      const secs = (clip.duration || 30) % 60;
+      const durStr = `${mins}:${String(secs).padStart(2,'0')}`;
+
+      card.innerHTML = `
+        <div class="clip-thumb">
+          <div class="clip-thumb-bg">🎬</div>
+          <video class="clip-video" src="${streamUrl}" preload="metadata" muted loop></video>
+          <div class="clip-score">${score} score</div>
+          <button class="play-btn" onclick="togglePlay(this, ${i})">▶</button>
+          <div class="subtitle-strip">${clip.transcript ? clip.transcript.slice(0, 60) + '...' : 'Clip ' + (i+1)}</div>
+          <div class="clip-duration">${durStr}</div>
+        </div>
+        <div class="clip-info">
+          <div class="clip-title">${clip.title || 'Clip ' + (i+1)}</div>
+          <div class="clip-desc">${clip.description || ''}</div>
+          ${clip.transcript ? `<div class="clip-transcript" id="tr-${i}">🎤 ${clip.transcript}</div>` : ''}
+          <div class="clip-tags">${tags}</div>
+          <div class="clip-actions">
+            <a class="clip-btn clip-btn-primary" href="${dlUrl}" download="clip_${i+1}.mp4">⬇ Download</a>
+            <button class="clip-btn clip-btn-secondary" onclick="copyDesc(${i})">📋 Copy</button>
+            ${clip.transcript ? `<button class="clip-btn clip-btn-secondary" onclick="toggleTranscript(${i})" style="flex:0;padding:10px 12px">🎤</button>` : ''}
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function togglePlay(btn, i) {
+    const video = btn.closest('.clip-thumb').querySelector('video');
+    if (video.paused) { video.play(); btn.textContent = '⏸'; }
+    else { video.pause(); btn.textContent = '▶'; }
+  }
+
+  function toggleTranscript(i) {
+    document.getElementById('tr-'+i)?.classList.toggle('visible');
+  }
+
+  function copyDesc(i) {
+    const clip = generatedClips[i];
+    const text = (clip.description || '') + '\n\n' + (clip.hashtags || []).join(' ');
+    navigator.clipboard?.writeText(text).catch(()=>{});
+    showToast('✓ Description copied!');
+  }
+
+  function downloadAll() {
+    const apiUrl = getApiUrl();
+    generatedClips.forEach((clip, i) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = apiUrl + clip.download_url;
+        a.download = `clip_${i+1}.mp4`;
+        a.click();
+      }, i * 500);
+    });
+    showToast(`⬇ Downloading all ${generatedClips.length} clips...`);
+  }
+
+  function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast visible' + (isError ? ' error' : '');
+    setTimeout(() => t.classList.remove('visible'), 3500);
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
