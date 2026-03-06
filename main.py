@@ -117,13 +117,15 @@ def set_job(job_id, status, progress, message, clips=None):
 
 
 async def download_video(job_id: str, url: str) -> str:
-    out = str(UPLOAD_DIR / f"{job_id}.%(ext)s")
-    cmd = [
-        "yt-dlp",
-        "--format", "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-        "--merge-output-format", "mp4",
-        "--output", out, "--no-playlist", url,
-    ]
+    out = str(UPLOAD_DIR / f"{job_id}.%(ext)s") 
+  cmd = [
+    "yt-dlp",
+    "--format", "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    "--merge-output-format", "mp4",
+    "--extractor-args", "youtube:player_client=android,web",
+    "--no-check-certificates",
+    "--output", out, "--no-playlist", url,
+]
     proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     _, err = await proc.communicate()
     if proc.returncode != 0:
